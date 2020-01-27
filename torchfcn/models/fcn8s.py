@@ -7,7 +7,6 @@ from .fcn32s import get_upsampling_weight
 
 
 class FCN8s(nn.Module):
-
     pretrained_model = \
         osp.expanduser('~/data/models/pytorch/fcn8s_from_caffe.pth')
 
@@ -85,6 +84,9 @@ class FCN8s(nn.Module):
 
         self._initialize_weights()
 
+        self.class_dependent_layers = ["score_fr", "score_pool3", "score_pool4", "upscore2", "upscore8",
+                                       "upscore_pool4"]
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -144,8 +146,8 @@ class FCN8s(nn.Module):
 
         h = self.score_pool3(pool3)
         h = h[:, :,
-              9:9 + upscore_pool4.size()[2],
-              9:9 + upscore_pool4.size()[3]]
+            9:9 + upscore_pool4.size()[2],
+            9:9 + upscore_pool4.size()[3]]
         score_pool3c = h  # 1/8
 
         h = upscore_pool4 + score_pool3c  # 1/8
@@ -155,13 +157,16 @@ class FCN8s(nn.Module):
 
         return h
 
-    def copy_params_from_fcn16s(self, fcn16s):
+    def copy_params_from_fcn16s(self, fcn16s, n_class_changed=True):
         for name, l1 in fcn16s.named_children():
             try:
                 l2 = getattr(self, name)
                 l2.weight  # skip ReLU / Dropout
             except Exception:
                 continue
+            if n_class_changed and name in self.class_dependent_layers:
+                continue  # All these layers depend on class count.
+
             assert l1.weight.size() == l2.weight.size()
             l2.weight.data.copy_(l1.weight.data)
             if l1.bias is not None:
@@ -170,7 +175,6 @@ class FCN8s(nn.Module):
 
 
 class FCN8sAtOnce(FCN8s):
-
     pretrained_model = \
         osp.expanduser('~/data/models/pytorch/fcn8s-atonce_from_caffe.pth')
 
@@ -229,8 +233,8 @@ class FCN8sAtOnce(FCN8s):
 
         h = self.score_pool3(pool3 * 0.0001)  # XXX: scaling to train at once
         h = h[:, :,
-              9:9 + upscore_pool4.size()[2],
-              9:9 + upscore_pool4.size()[3]]
+            9:9 + upscore_pool4.size()[2],
+            9:9 + upscore_pool4.size()[3]]
         score_pool3c = h  # 1/8
 
         h = upscore_pool4 + score_pool3c  # 1/8
