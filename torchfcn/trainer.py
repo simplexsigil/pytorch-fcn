@@ -95,7 +95,7 @@ class Trainer(object):
     def train(self):
         last_lr = self.lr_scheduler.get_last_lr()
 
-        for epoch in tqdm.trange(self.epoch, self.max_epoch, desc='Train', ncols=80, file=sys.stdout):
+        for epoch in range(self.epoch, self.max_epoch):
             self.epoch = epoch
 
             for call_epoch, callback in self.epoch_callback_tuples:
@@ -168,11 +168,10 @@ class Trainer(object):
 
         print("\nTrain epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
               "Mean IU {miu} | Fwac Acc {fwavacc}".format(ep=self.epoch,
-                                                            acc=metrics[0],
-                                                            acc_cls=metrics[1],
-                                                            miu=metrics[2],
-                                                            fwavacc=metrics[3]))
-
+                                                          acc=metrics[0],
+                                                          acc_cls=metrics[1],
+                                                          miu=metrics[2],
+                                                          fwavacc=metrics[3]))
 
         with open(osp.join(self.out, 'log.csv'), 'a') as f:
             now = datetime.datetime.now(pytz.timezone('Europe/Berlin'))
@@ -191,7 +190,8 @@ class Trainer(object):
         visualizations = []
         label_trues, label_preds = [], []
         for batch_idx, (data, target) in tqdm.tqdm(enumerate(self.val_loader), total=len(self.val_loader),
-                                                   desc='Validate epoch={}'.format(self.epoch), ncols=80, leave=False,file=sys.stdout):
+                                                   desc='Validate epoch={}'.format(self.epoch), ncols=80, leave=False,
+                                                   file=sys.stdout):
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
 
@@ -216,7 +216,7 @@ class Trainer(object):
                 label_trues.append(lt)
                 label_preds.append(lp)
 
-                if self.epoch % self.max_epoch == 0:
+                if self.epoch % self.interval_val_viz == 0:
                     if len(visualizations) < 9:
                         viz = fcn.utils.visualize_segmentation(lbl_pred=lp, lbl_true=lt, img=img, n_class=n_class)
                         visualizations.append(viz)
@@ -235,10 +235,10 @@ class Trainer(object):
 
         print("\nValidate epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
               "Mean IU {miu} | Fwac Acc {fwavacc}".format(ep=self.epoch,
-                                                            acc=metrics[0],
-                                                            acc_cls=metrics[1],
-                                                            miu=metrics[2],
-                                                            fwavacc=metrics[3]))
+                                                          acc=metrics[0],
+                                                          acc_cls=metrics[1],
+                                                          miu=metrics[2],
+                                                          fwavacc=metrics[3]))
 
         with open(osp.join(self.out, 'log.csv'), 'a') as f:
             elapsed_time = (
