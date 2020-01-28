@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 import torchfcn
 from cmu_airlab.datasets.dataset_air_lab import AirLabClassSegBase
-from train_fcn32s import get_parameters, git_hash
+from examples.voc.train_fcn32s import get_parameters, git_hash
 
 here = osp.dirname(osp.abspath(__file__))
 
