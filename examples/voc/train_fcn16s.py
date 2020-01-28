@@ -115,7 +115,7 @@ def main():
         train_loader=train_loader,
         val_loader=val_loader,
         out=args.out,
-        max_iter=args.max_iteration,
+        max_epoch=args.max_iteration,
         interval_validate=4000,
     )
     trainer.epoch = start_epoch

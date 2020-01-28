@@ -1,4 +1,15 @@
+import shlex
+import subprocess
+
 import numpy as np
+
+
+def git_hash():
+    cmd = 'git log -n 1 --pretty="%h"'
+    ret = subprocess.check_output(shlex.split(cmd)).strip()
+    if isinstance(ret, bytes):
+        ret = ret.decode()
+    return ret
 
 
 def _fast_hist(label_true, label_pred, n_class):
@@ -26,7 +37,7 @@ def label_accuracy_score(label_trues, label_preds, n_class):
     acc_cls = np.nanmean(acc_cls)
     with np.errstate(divide='ignore', invalid='ignore'):
         iu = np.diag(hist) / (
-            hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist)
+                hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist)
         )
     mean_iu = np.nanmean(iu)
     freq = hist.sum(axis=1) / hist.sum()

@@ -1,5 +1,4 @@
 import datetime
-import math
 import os
 import os.path as osp
 import shutil
@@ -44,7 +43,7 @@ class Trainer(object):
 
     def __init__(self, cuda, model, optimizer, lr_scheduler,
                  train_loader, val_loader, out, max_epoch,
-                 size_average=False, interval_validate=None):
+                 size_average=False, interval_val_viz=-1, epoch_callback_tuples=None):
         self.cuda = cuda
 
         self.model = model
@@ -54,14 +53,15 @@ class Trainer(object):
         self.train_loader = train_loader
         self.val_loader = val_loader
 
-        self.timestamp_start = \
-            datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
-        self.size_average = size_average
+        self.interval_val_viz = interval_val_viz
 
-        if interval_validate is None:
-            self.interval_validate = len(self.train_loader)
+        if epoch_callback_tuples is None:
+            epoch_callback_tuples = []
         else:
-            self.interval_validate = interval_validate
+            self.epoch_callback_tuples = epoch_callback_tuples
+
+        self.tmstamp_strt = datetime.datetime.now(pytz.timezone('Europe/Berlin'))
+        self.size_average = size_average
 
         self.out = out
         if not osp.exists(self.out):
@@ -100,21 +100,22 @@ class Trainer(object):
         val_loss = 0
         visualizations = []
         label_trues, label_preds = [], []
-        for batch_idx, (data, target) in tqdm.tqdm(
-                enumerate(self.val_loader), total=len(self.val_loader),
-                desc='Validation epoch=%d' % self.epoch, ncols=80,
-                leave=False):
+        for batch_idx, (data, target) in tqdm.tqdm(enumerate(self.val_loader), total=len(self.val_loader),
+                                                   desc='Valid. epoch={}'.format(self.epoch), ncols=80, leave=False):
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
+
             data, target = Variable(data), Variable(target)
+
             with torch.no_grad():
                 score = self.model(data)
 
-            loss = cross_entropy2d(score, target,
-                                   size_average=self.size_average)
+            loss = cross_entropy2d(score, target, size_average=self.size_average)
             loss_data = loss.data.item()
+
             if np.isnan(loss_data):
                 raise ValueError('loss is nan while validating')
+
             val_loss += loss_data / len(data)
 
             imgs = data.data.cpu()
@@ -124,12 +125,13 @@ class Trainer(object):
                 img, lt = self.val_loader.dataset.untransform(img, lt)
                 label_trues.append(lt)
                 label_preds.append(lp)
-                if len(visualizations) < 9:
-                    viz = fcn.utils.visualize_segmentation(
-                        lbl_pred=lp, lbl_true=lt, img=img, n_class=n_class)
-                    visualizations.append(viz)
-        metrics = torchfcn.utils.label_accuracy_score(
-            label_trues, label_preds, n_class)
+
+                if self.epoch % self.max_epoch == 0:
+                    if len(visualizations) < 9:
+                        viz = fcn.utils.visualize_segmentation(lbl_pred=lp, lbl_true=lt, img=img, n_class=n_class)
+                        visualizations.append(viz)
+
+        metrics = torchfcn.utils.label_accuracy_score(label_trues, label_preds, n_class)
 
         out = osp.join(self.out, 'visualization_viz')
         if not osp.exists(out):
@@ -139,12 +141,18 @@ class Trainer(object):
 
         val_loss /= len(self.val_loader)
 
+        print()
+        print("Validate epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
+              "Mean IU {miu} | Fwac Acc {fwavacc}\n".format(ep=self.epoch,
+                                                            acc=metrics[0],
+                                                            acc_cls=metrics[1],
+                                                            miu=metrics[2],
+                                                            fwavacc=metrics[3]))
+
         with open(osp.join(self.out, 'log.csv'), 'a') as f:
             elapsed_time = (
-                    datetime.datetime.now(pytz.timezone('Asia/Tokyo')) -
-                    self.timestamp_start).total_seconds()
-            log = [self.epoch, self.iteration] + [''] * 5 + \
-                  [val_loss] + list(metrics) + [elapsed_time]
+                    datetime.datetime.now(pytz.timezone('Europe/Berlin')) - self.tmstamp_strt).total_seconds()
+            log = [self.epoch, self.iteration] + [''] * 5 + [val_loss] + list(metrics) + [elapsed_time]
             log = map(str, log)
             f.write(','.join(log) + '\n')
 
@@ -172,62 +180,84 @@ class Trainer(object):
 
         n_class = len(self.train_loader.dataset.class_names)
 
-        if self.epoch % self.interval_validate == 0:
-            self.validate()
-
         assert self.model.training
 
-        for batch_idx, (data, target) in tqdm.tqdm(
-                enumerate(self.train_loader), total=len(self.train_loader),
-                desc='Train epoch=%d' % self.epoch, ncols=80, leave=False):
+        metrics = []
+
+        for batch_idx, (data, target) in tqdm.tqdm(enumerate(self.train_loader), total=len(self.train_loader),
+                                                   desc='Train epoch=%d' % self.epoch, ncols=80, leave=False):
             iteration = batch_idx + self.epoch * len(self.train_loader)
+
+            # Jump forward if resuming.
             if self.iteration != 0 and (iteration - 1) != self.iteration:
-                continue  # for resuming
+                continue
+
             self.iteration = iteration
 
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)
+
             self.optim.zero_grad()
+
             score = self.model(data)
 
-            loss = cross_entropy2d(score, target,
-                                   size_average=self.size_average)
+            loss = cross_entropy2d(score, target, size_average=self.size_average)
             loss /= len(data)
             loss_data = loss.data.item()
             if np.isnan(loss_data):
                 raise ValueError('loss is nan while training')
+
             loss.backward()
+
             self.optim.step()
 
-            metrics = []
             lbl_pred = score.data.max(1)[1].cpu().numpy()[:, :, :]
             lbl_true = target.data.cpu().numpy()
-            acc, acc_cls, mean_iu, fwavacc = \
-                torchfcn.utils.label_accuracy_score(
-                    lbl_true, lbl_pred, n_class=n_class)
+
+            acc, acc_cls, mean_iu, fwavacc = torchfcn.utils.label_accuracy_score(lbl_true, lbl_pred, n_class=n_class)
+
             metrics.append((acc, acc_cls, mean_iu, fwavacc))
-            metrics = np.mean(metrics, axis=0)
 
-            with open(osp.join(self.out, 'log.csv'), 'a') as f:
-                elapsed_time = (
-                        datetime.datetime.now(pytz.timezone('Asia/Tokyo')) -
-                        self.timestamp_start).total_seconds()
-                log = [self.epoch, self.iteration] + [loss_data] + \
-                      metrics.tolist() + [''] * 5 + [elapsed_time]
-                log = map(str, log)
-                f.write(','.join(log) + '\n')
+        metrics = np.mean(metrics, axis=0)
 
-            if self.epoch >= self.max_epoch:
-                break
+        print()
+        print("Train epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
+              "Mean IU {miu} | Fwac Acc {fwavacc}\n".format(ep=self.epoch,
+                                                            acc=metrics[0],
+                                                            acc_cls=metrics[1],
+                                                            miu=metrics[2],
+                                                            fwavacc=metrics[3]))
+
+        with open(osp.join(self.out, 'log.csv'), 'a') as f:
+            now = datetime.datetime.now(pytz.timezone('Europe/Berlin'))
+            elpsd_time = (now - self.tmstamp_strt).total_seconds()
+            log = [self.epoch, self.iteration] + [loss_data] + metrics.tolist() + [''] * 5 + [elpsd_time]
+            log = map(str, log)
+            f.write(','.join(log) + '\n')
 
     def train(self):
+        last_lr = self.lr_scheduler.get_last_lr()
+
         for epoch in tqdm.trange(self.epoch, self.max_epoch,
                                  desc='Train', ncols=80):
             self.epoch = epoch
-            for par_group in self.optim.param_groups:
-                print("Current learning rates: {}".format(par_group["lr"]))
+
+            for call_epoch, callback in self.epoch_callback_tuples:
+                if call_epoch == self.epoch:
+                    callback()  # For example for unfreezing weight after some training.
+
+            if self.epoch > 0 and self.interval_val_viz % self.epoch == 0:  # Print Current Learning rate.
+                cur_lr = self.lr_scheduler.get_last_lr()
+
+                if cur_lr != last_lr:
+                    for par_group in self.optim.param_groups:
+                        print("\nChanged param group learning rate to: {}".format(par_group["lr"]))
+                    print("")
+
             self.train_epoch()
+            self.validate()
             self.lr_scheduler.step()
+
             if self.epoch >= self.max_epoch:
                 break
