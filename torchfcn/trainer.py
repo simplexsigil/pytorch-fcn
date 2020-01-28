@@ -184,6 +184,8 @@ class Trainer(object):
 
         metrics = []
 
+        first_iteration = True  # This will be resolved later.
+
         for batch_idx, (data, target) in tqdm.tqdm(enumerate(self.train_loader), total=len(self.train_loader),
                                                    desc='Train epoch=%d' % self.epoch, ncols=80, leave=False):
             iteration = batch_idx + self.epoch * len(self.train_loader)
@@ -194,8 +196,10 @@ class Trainer(object):
 
             self.iteration = iteration
 
-            self.validate()
-            assert self.model.training
+            if first_iteration:  # This will be resolved later.
+                self.validate()
+                first_iteration = False
+                assert self.model.training
 
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
