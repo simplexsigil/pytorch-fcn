@@ -113,7 +113,7 @@ def main():
     if args.resume:
         optim.load_state_dict(checkpoint['optim_state_dict'])
 
-    scheduler = MultiStepLR(optim, milestones=[1, 15, 40, 80, 140, 200], gamma=0.1, last_epoch=start_epoch - 1)
+    scheduler = MultiStepLR(optim, milestones=[15, 40, 80, 140, 200], gamma=0.1, last_epoch=start_epoch - 1)
 
     trainer = torchfcn.Trainer(
         cuda=cuda,
