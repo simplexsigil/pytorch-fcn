@@ -7,6 +7,7 @@ import os.path as osp
 
 import torch
 import yaml
+from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 
 import torchfcn
@@ -112,15 +113,18 @@ def main():
     if args.resume:
         optim.load_state_dict(checkpoint['optim_state_dict'])
 
+    scheduler = MultiStepLR(optim, milestones=[1, 15, 40, 80, 140, 200], gamma=0.1, last_epoch=start_epoch - 1)
+
     trainer = torchfcn.Trainer(
         cuda=cuda,
         model=fcn_model,
         optimizer=optim,
+        lr_scheduler=scheduler,
         train_loader=train_loader,
         val_loader=val_loader,
         out=args.out,
-        max_iter=args.max_iteration,
-        interval_validate=50,
+        max_epoch=args.max_iteration,
+        interval_validate=2,
     )
     trainer.epoch = start_epoch
     trainer.iteration = start_iteration

@@ -1,18 +1,18 @@
 import datetime
-from distutils.version import LooseVersion
 import math
 import os
 import os.path as osp
 import shutil
+from distutils.version import LooseVersion
 
 import fcn
 import numpy as np
 import pytz
 import skimage.io
 import torch
-from torch.autograd import Variable
 import torch.nn.functional as F
 import tqdm
+from torch.autograd import Variable
 
 import torchfcn
 
@@ -42,13 +42,14 @@ def cross_entropy2d(input, target, weight=None, size_average=True):
 
 class Trainer(object):
 
-    def __init__(self, cuda, model, optimizer,
-                 train_loader, val_loader, out, max_iter,
+    def __init__(self, cuda, model, optimizer, lr_scheduler,
+                 train_loader, val_loader, out, max_epoch,
                  size_average=False, interval_validate=None):
         self.cuda = cuda
 
         self.model = model
         self.optim = optimizer
+        self.lr_scheduler = lr_scheduler
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -87,7 +88,7 @@ class Trainer(object):
 
         self.epoch = 0
         self.iteration = 0
-        self.max_iter = max_iter
+        self.max_epoch = max_epoch
         self.best_mean_iu = 0
 
     def validate(self):
@@ -101,7 +102,7 @@ class Trainer(object):
         label_trues, label_preds = [], []
         for batch_idx, (data, target) in tqdm.tqdm(
                 enumerate(self.val_loader), total=len(self.val_loader),
-                desc='Valid iteration=%d' % self.iteration, ncols=80,
+                desc='Validation epoch=%d' % self.epoch, ncols=80,
                 leave=False):
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
@@ -133,15 +134,15 @@ class Trainer(object):
         out = osp.join(self.out, 'visualization_viz')
         if not osp.exists(out):
             os.makedirs(out)
-        out_file = osp.join(out, 'iter%012d.jpg' % self.iteration)
+        out_file = osp.join(out, 'epoch%012d.jpg' % self.epoch)
         skimage.io.imsave(out_file, fcn.utils.get_tile_image(visualizations))
 
         val_loss /= len(self.val_loader)
 
         with open(osp.join(self.out, 'log.csv'), 'a') as f:
             elapsed_time = (
-                datetime.datetime.now(pytz.timezone('Asia/Tokyo')) -
-                self.timestamp_start).total_seconds()
+                    datetime.datetime.now(pytz.timezone('Asia/Tokyo')) -
+                    self.timestamp_start).total_seconds()
             log = [self.epoch, self.iteration] + [''] * 5 + \
                   [val_loss] + list(metrics) + [elapsed_time]
             log = map(str, log)
@@ -171,6 +172,11 @@ class Trainer(object):
 
         n_class = len(self.train_loader.dataset.class_names)
 
+        if self.epoch % self.interval_validate == 0:
+            self.validate()
+
+        assert self.model.training
+
         for batch_idx, (data, target) in tqdm.tqdm(
                 enumerate(self.train_loader), total=len(self.train_loader),
                 desc='Train epoch=%d' % self.epoch, ncols=80, leave=False):
@@ -178,11 +184,6 @@ class Trainer(object):
             if self.iteration != 0 and (iteration - 1) != self.iteration:
                 continue  # for resuming
             self.iteration = iteration
-
-            if self.iteration % self.interval_validate == 0:
-                self.validate()
-
-            assert self.model.training
 
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
@@ -210,21 +211,23 @@ class Trainer(object):
 
             with open(osp.join(self.out, 'log.csv'), 'a') as f:
                 elapsed_time = (
-                    datetime.datetime.now(pytz.timezone('Asia/Tokyo')) -
-                    self.timestamp_start).total_seconds()
+                        datetime.datetime.now(pytz.timezone('Asia/Tokyo')) -
+                        self.timestamp_start).total_seconds()
                 log = [self.epoch, self.iteration] + [loss_data] + \
-                    metrics.tolist() + [''] * 5 + [elapsed_time]
+                      metrics.tolist() + [''] * 5 + [elapsed_time]
                 log = map(str, log)
                 f.write(','.join(log) + '\n')
 
-            if self.iteration >= self.max_iter:
+            if self.epoch >= self.max_epoch:
                 break
 
     def train(self):
-        max_epoch = int(math.ceil(1. * self.max_iter / len(self.train_loader)))
-        for epoch in tqdm.trange(self.epoch, max_epoch,
+        for epoch in tqdm.trange(self.epoch, self.max_epoch,
                                  desc='Train', ncols=80):
             self.epoch = epoch
+            for par_group in self.optim.param_groups:
+                print("Current learning rates: {}".format(par_group["lr"]))
             self.train_epoch()
-            if self.iteration >= self.max_iter:
+            self.lr_scheduler.step()
+            if self.epoch >= self.max_epoch:
                 break
