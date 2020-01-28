@@ -27,10 +27,12 @@ class AirLabClassSegBase(data.Dataset):
     # This is probably not correct for this dataset, but lets see how it goes.
     mean_bgr = np.array([104.00698793, 116.66876762, 122.67891434])
 
-    def __init__(self, root, val=False, transform=True, k_fold=4, k_fold_val=0, shuffle=True, shuffle_seed=42):
+    def __init__(self, root, val=False, transform=True, k_fold=4, k_fold_val=0, shuffle=True, shuffle_seed=42,
+                 max_len=None):
         self.root = root
         self._transform = transform
         self.val = val
+        self.max_len = max_len
 
         # Creating lists of images, disparities and labels
         self.dataset_dir = osp.join(self.root, 'cmu-airlab/assignment-task-5/data')
@@ -62,9 +64,9 @@ class AirLabClassSegBase(data.Dataset):
 
     def __len__(self):
         if self.val:
-            return len(self.lbl_ids_val)
+            return len(self.lbl_ids_val) if self.max_len is None else self.max_len
         else:
-            return len(self.lbl_ids_train)
+            return len(self.lbl_ids_train) if self.max_len is None else self.max_len
 
     def __getitem__(self, index):
         if self.val:

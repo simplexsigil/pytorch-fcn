@@ -63,7 +63,7 @@ def main():
         checkpoint = torch.load(args.resume)
         optim.load_state_dict(checkpoint['optim_state_dict'])
 
-    scheduler = MultiStepLR(optim, milestones=[15, 40, 80, 140, 200], gamma=0.1, last_epoch=start_epoch - 1)
+    scheduler = MultiStepLR(optim, milestones=[130, 200, 300, 400], gamma=0.1, last_epoch=start_epoch - 1)
 
     weight_unfreezer = prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen=True)
 
@@ -75,10 +75,11 @@ def main():
         train_loader=train_loader,
         val_loader=val_loader,
         out=args.out,
-        max_epoch=args.max_iteration,
-        interval_val_viz=5,
+        max_epoch=args.max_epoch,
+        interval_val_viz=10,
         epoch_callback_tuples=[(30, weight_unfreezer)]
     )
+
     trainer.epoch = start_epoch
     trainer.iteration = start_iteration
     trainer.train()
@@ -153,7 +154,7 @@ def argument_parsing():
     # configurations (same configuration as original work)
     # https://github.com/shelhamer/fcn.berkeleyvision.org
     parser.add_argument(
-        '--max-iteration', type=int, default=100000, help='max iteration'
+        '--max-epoch', type=int, default=2000, help='max epoch'
     )
     parser.add_argument(
         '--lr', type=float, default=1.0e-14, help='learning rate',
