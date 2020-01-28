@@ -77,7 +77,7 @@ def main():
         out=args.out,
         max_epoch=args.max_iteration,
         interval_val_viz=5,
-        epoch_callback_tuples=[(300, weight_unfreezer)]
+        epoch_callback_tuples=[(30, weight_unfreezer)]
     )
     trainer.epoch = start_epoch
     trainer.iteration = start_iteration
