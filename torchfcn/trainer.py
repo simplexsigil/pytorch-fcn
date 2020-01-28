@@ -194,6 +194,9 @@ class Trainer(object):
 
             self.iteration = iteration
 
+            self.validate()
+            assert self.model.training
+
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)
@@ -256,7 +259,6 @@ class Trainer(object):
                     print("")
 
             self.train_epoch()
-            self.validate()
             self.lr_scheduler.step()
 
             if self.epoch >= self.max_epoch:
