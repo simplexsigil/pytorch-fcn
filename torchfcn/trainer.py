@@ -166,7 +166,7 @@ class Trainer(object):
 
         metrics = np.mean(metrics, axis=0)
 
-        print("Train epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
+        print("\nTrain epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
               "Mean IU {miu} | Fwac Acc {fwavacc}".format(ep=self.epoch,
                                                             acc=metrics[0],
                                                             acc_cls=metrics[1],
@@ -233,7 +233,7 @@ class Trainer(object):
 
         val_loss /= len(self.val_loader)
 
-        print("Validate epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
+        print("\nValidate epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
               "Mean IU {miu} | Fwac Acc {fwavacc}".format(ep=self.epoch,
                                                             acc=metrics[0],
                                                             acc_cls=metrics[1],

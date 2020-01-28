@@ -25,7 +25,7 @@ def main():
     args.git_hash = git_hash()  # This is a nice idea: Makes results reproducible by logging current git commit.
 
     args.use_cuda = prepare_cuda(args, torch_seed=42)
-    args.use_cuda = False
+    # args.use_cuda = False
 
     settings_to_logfile(args)
 
