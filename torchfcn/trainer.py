@@ -191,10 +191,10 @@ class Trainer(object):
 
         print("\rTrain epoch {ep}: Mean Pix Acc {acc:.4f} | Mean Class Acc {acc_cls:.4f} | "
               "Mean IoU {miu:.4f} | Weighted mean IoU {fwavacc:.4f}".format(ep=self.epoch,
-                                                                    acc=metrics[0],
-                                                                    acc_cls=metrics[1],
-                                                                    miu=metrics[2],
-                                                                    fwavacc=metrics[3]))
+                                                                            acc=metrics[0],
+                                                                            acc_cls=metrics[1],
+                                                                            miu=metrics[2],
+                                                                            fwavacc=metrics[3]))
 
         with open(osp.join(self.out, 'log_train.csv'), 'a') as f:
             now = datetime.datetime.now(pytz.timezone('Europe/Berlin'))
@@ -267,10 +267,10 @@ class Trainer(object):
 
         print("\rValidate epoch {ep}: Mean Pix Acc {acc:.4f} | Mean Class Acc {acc_cls:.4f} | "
               "Mean IoU {miu:.4f} | Weighted mean IoU {fwavacc:.4f}".format(ep=self.epoch,
-                                                                    acc=metrics[0],
-                                                                    acc_cls=metrics[1],
-                                                                    miu=metrics[2],
-                                                                    fwavacc=metrics[3]))
+                                                                            acc=metrics[0],
+                                                                            acc_cls=metrics[1],
+                                                                            miu=metrics[2],
+                                                                            fwavacc=metrics[3]))
 
         with open(osp.join(self.out, 'log_val.csv'), 'a') as f:
             elapsed_time = (
@@ -297,9 +297,9 @@ class Trainer(object):
             shutil.copy(osp.join(self.out, 'checkpoint.pth.tar'),
                         osp.join(self.out, 'model_best.pth.tar'))
 
-        # if self.epoch % self.interval_val_viz == 0:
-        torchfcn.utils.plot_metrics(self.metric_history, self.train_loss_history, self.val_loss_history,
-                                    cls_names=self.cls_names, best_idx=self.best_epoch, out_file=self.out)
+        if self.epoch % self.interval_val_viz == 0:
+            torchfcn.utils.plot_metrics(self.metric_history, self.train_loss_history, self.val_loss_history,
+                                        cls_names=self.cls_names, best_idx=self.best_epoch, out_file=self.out)
 
         if training:
             self.model.train()
