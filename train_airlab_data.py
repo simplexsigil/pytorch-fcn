@@ -19,70 +19,82 @@ here = osp.dirname(osp.abspath(__file__))
 
 
 def main():
+    on_my_notebook = torch.cuda.get_device_name() == 'GeForce 940MX'
+
     args = argument_parsing()
 
     args.model = 'FCN8s'
     args.git_hash = git_hash()  # This is a nice idea: Makes results reproducible by logging current git commit.
 
     args.use_cuda = prepare_cuda(args, torch_seed=42)
-    # args.use_cuda = False
+    args.use_cuda = False if on_my_notebook else args.use_cuda
 
     settings_to_logfile(args)
 
-    # Prepare Dataset
-    root = osp.expanduser('~/Daten/datasets')
-    kwargs = {'num_workers': 4, 'pin_memory': True} if args.use_cuda else {}
+    for k in range(args.k_fold):
+        print("Training fold {}/{}".format(k, args.k_fold))
 
-    train_loader = DataLoader(AirLabClassSegBase(root, transform=True), batch_size=1, shuffle=False, **kwargs)
-    val_loader = DataLoader(AirLabClassSegBase(root, val=True, transform=True), batch_size=1, shuffle=False, **kwargs)
+        out = osp.join(args.out, "fold_{}".format(k))
+        # Prepare Dataset
+        root = osp.expanduser('~/Daten/datasets')
+        kwargs = {'num_workers': 4, 'pin_memory': True} if args.use_cuda else {}
 
-    # Check for checkpoint.
-    start_epoch = 0
-    start_iteration = 0
-    checkpoint = None
-    if args.resume:
-        checkpoint = torch.load(args.resume)
-        start_epoch = checkpoint['epoch']
-        start_iteration = checkpoint['iteration']
+        train_dst = AirLabClassSegBase(root, transform=True, max_len=3 if on_my_notebook else None,
+                                       k_fold=args.k_fold, k_fold_val=k)
 
-    # Prepare model. Load weights from checkpoint if available.
-    fcn_model = prepare_model(args, freeze_cnn_weights=True, checkpoint=checkpoint)
+        test_dst = AirLabClassSegBase(root, val=True, transform=True, max_len=3 if on_my_notebook else None,
+                                      k_fold=args.k_fold, k_fold_val=k)
 
-    # Prepare optimizer and learning rate scheduler-
-    optim = torch.optim.SGD(
-        [
-            {'params': get_parameters(fcn_model, bias=False)},
-            {'params': get_parameters(fcn_model, bias=True),
-             'lr': args.lr * 2, 'weight_decay': 0},
-        ],
-        lr=args.lr,
-        momentum=args.momentum,
-        weight_decay=args.weight_decay)
+        train_loader = DataLoader(train_dst, batch_size=1, shuffle=False, **kwargs)
+        val_loader = DataLoader(test_dst, batch_size=1, shuffle=False, **kwargs)
 
-    if args.resume:
-        checkpoint = torch.load(args.resume)
-        optim.load_state_dict(checkpoint['optim_state_dict'])
+        # Check for checkpoint.
+        start_epoch = 0
+        start_iteration = 0
+        checkpoint = None
+        if args.resume:
+            checkpoint = torch.load(args.resume)
+            start_epoch = checkpoint['epoch']
+            start_iteration = checkpoint['iteration']
 
-    scheduler = MultiStepLR(optim, milestones=[130, 200, 300, 400], gamma=0.1, last_epoch=start_epoch - 1)
+        # Prepare model. Load weights from checkpoint if available.
+        fcn_model = prepare_model(args, freeze_cnn_weights=True, checkpoint=checkpoint)
 
-    weight_unfreezer = prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen=True)
+        # Prepare optimizer and learning rate scheduler-
+        optim = torch.optim.SGD(
+            [
+                {'params': get_parameters(fcn_model, bias=False)},
+                {'params': get_parameters(fcn_model, bias=True),
+                 'lr': args.lr * 2, 'weight_decay': 0},
+            ],
+            lr=args.lr,
+            momentum=args.momentum,
+            weight_decay=args.weight_decay)
 
-    trainer = torchfcn.Trainer(
-        cuda=args.use_cuda,
-        model=fcn_model,
-        optimizer=optim,
-        lr_scheduler=scheduler,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        out=args.out,
-        max_epoch=args.max_epoch,
-        interval_val_viz=10,
-        epoch_callback_tuples=[(30, weight_unfreezer)]
-    )
+        if args.resume:
+            checkpoint = torch.load(args.resume)
+            optim.load_state_dict(checkpoint['optim_state_dict'])
 
-    trainer.epoch = start_epoch
-    trainer.iteration = start_iteration
-    trainer.train()
+        scheduler = MultiStepLR(optim, milestones=[50, 80, 90], gamma=0.1, last_epoch=start_epoch - 1)
+
+        weight_unfreezer = prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen=True)
+
+        trainer = torchfcn.Trainer(
+            cuda=args.use_cuda,
+            model=fcn_model,
+            optimizer=optim,
+            lr_scheduler=scheduler,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            out=out,
+            max_epoch=args.max_epoch,
+            interval_val_viz=10,
+            epoch_callback_tuples=[(30, weight_unfreezer)]
+        )
+
+        trainer.epoch = start_epoch
+        trainer.iteration = start_iteration
+        trainer.train()
 
 
 def prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen):
@@ -154,7 +166,10 @@ def argument_parsing():
     # configurations (same configuration as original work)
     # https://github.com/shelhamer/fcn.berkeleyvision.org
     parser.add_argument(
-        '--max-epoch', type=int, default=2000, help='max epoch'
+        '--max-epoch', type=int, default=101, help='max epoch'
+    )
+    parser.add_argument(
+        '--k-fold', type=int, default=4, help='k for k-fold validation'
     )
     parser.add_argument(
         '--lr', type=float, default=1.0e-14, help='learning rate',

@@ -47,6 +47,12 @@ class Trainer(object):
                  size_average=False, interval_val_viz=-1, epoch_callback_tuples=None):
         self.cuda = cuda
 
+        self.cls_names = train_loader.dataset.class_names
+
+        self.metric_history = []
+        self.train_loss_history = []
+        self.val_loss_history = []
+
         self.model = model
         self.optim = optimizer
         self.lr_scheduler = lr_scheduler
@@ -68,29 +74,41 @@ class Trainer(object):
         if not osp.exists(self.out):
             os.makedirs(self.out)
 
-        self.log_headers = [
+        self.log_headers_train = [
             'epoch',
             'iteration',
             'train/loss',
-            'train/acc',
-            'train/acc_cls',
-            'train/mean_iu',
-            'train/fwavacc',
-            'valid/loss',
-            'valid/acc',
-            'valid/acc_cls',
-            'valid/mean_iu',
-            'valid/fwavacc',
-            'elapsed_time',
+            'train/avg_acc',
+            'train/avg_cls_wise_acc',
+            'train/mean_iou',
+            'train/fw_mean_iou'
+            'elapsed_time'
         ]
-        if not osp.exists(osp.join(self.out, 'log.csv')):
-            with open(osp.join(self.out, 'log.csv'), 'w') as f:
-                f.write(','.join(self.log_headers) + '\n')
+
+        self.log_headers_val = [
+            'epoch',
+            'iteration',
+            'valid/loss',
+            'valid/avg_acc',
+            'valid/avg_cls_wise_acc',
+            'valid/mean_iou',
+            'valid/fw_mean_iou',
+            'elapsed_time'
+        ]
+
+        if not osp.exists(osp.join(self.out, 'log_train.csv')):
+            with open(osp.join(self.out, 'log_train.csv'), 'w') as f:
+                f.write(','.join(self.log_headers_train) + '\n')
+
+        if not osp.exists(osp.join(self.out, 'log_val.csv')):
+            with open(osp.join(self.out, 'log_val.csv'), 'w') as f:
+                f.write(','.join(self.log_headers_val) + '\n')
 
         self.epoch = 0
         self.iteration = 0
         self.max_epoch = max_epoch
-        self.best_mean_iu = 0
+        self.best_mean_iou = 0
+        self.best_epoch = 0
 
     def train(self):
         last_lr = self.lr_scheduler.get_last_lr()
@@ -127,6 +145,7 @@ class Trainer(object):
         assert self.model.training
 
         metrics = []
+        train_loss = 0
 
         for batch_idx, (data, target) in tqdm.tqdm(enumerate(self.train_loader), total=len(self.train_loader),
                                                    desc='Train epoch=%d' % self.epoch, ncols=80, leave=False,
@@ -150,6 +169,7 @@ class Trainer(object):
             loss = cross_entropy2d(score, target, size_average=self.size_average)
             loss /= len(data)
             loss_data = loss.data.item()
+            train_loss += loss_data
             if np.isnan(loss_data):
                 raise ValueError('loss is nan while training')
 
@@ -166,29 +186,36 @@ class Trainer(object):
 
         metrics = np.mean(metrics, axis=0)
 
-        print("\nTrain epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
-              "Mean IU {miu} | Fwac Acc {fwavacc}".format(ep=self.epoch,
-                                                          acc=metrics[0],
-                                                          acc_cls=metrics[1],
-                                                          miu=metrics[2],
-                                                          fwavacc=metrics[3]))
+        train_loss /= len(self.train_loader)
+        self.train_loss_history.append(train_loss)
 
-        with open(osp.join(self.out, 'log.csv'), 'a') as f:
+        print("\nTrain epoch {ep}: Mean Pix Acc {acc} | Mean Class Acc {acc_cls} | "
+              "Mean IoU {miu} | Weighted mean IoU {fwavacc}".format(ep=self.epoch,
+                                                                    acc=metrics[0],
+                                                                    acc_cls=metrics[1],
+                                                                    miu=metrics[2],
+                                                                    fwavacc=metrics[3]))
+
+        with open(osp.join(self.out, 'log_train.csv'), 'a') as f:
             now = datetime.datetime.now(pytz.timezone('Europe/Berlin'))
             elpsd_time = (now - self.tmstamp_strt).total_seconds()
-            log = [self.epoch, self.iteration] + [loss_data] + metrics.tolist() + [''] * 5 + [elpsd_time]
+            log = [self.epoch, self.iteration, loss_data] + metrics.tolist() + [elpsd_time]
             log = map(str, log)
             f.write(','.join(log) + '\n')
 
     def validate(self):
+        # Save training state to apply it again, later.
         training = self.model.training
+
+        # Set model to evaluation mode.
         self.model.eval()
 
-        n_class = len(self.val_loader.dataset.class_names)
-
+        # Preparing training variables.
         val_loss = 0
         visualizations = []
         label_trues, label_preds = [], []
+        n_class = len(self.val_loader.dataset.class_names)
+
         for batch_idx, (data, target) in tqdm.tqdm(enumerate(self.val_loader), total=len(self.val_loader),
                                                    desc='Validate epoch={}'.format(self.epoch), ncols=80, leave=False,
                                                    file=sys.stdout):
@@ -202,7 +229,6 @@ class Trainer(object):
 
             loss = cross_entropy2d(score, target, size_average=self.size_average)
             loss_data = loss.data.item()
-
             if np.isnan(loss_data):
                 raise ValueError('loss is nan while validating')
 
@@ -221,7 +247,12 @@ class Trainer(object):
                         viz = fcn.utils.visualize_segmentation(lbl_pred=lp, lbl_true=lt, img=img, n_class=n_class)
                         visualizations.append(viz)
 
-        metrics = torchfcn.utils.label_accuracy_score(label_trues, label_preds, n_class)
+        det_metrics = torchfcn.utils.label_accuracy_score_detailed(label_trues, label_preds, n_class, rt_cnf_mat=True)
+        px_all, tr_all, tr_cls_wise, cls_pixel_counts, cls_clsfd_pixel_counts, cls_iou, cnf_mat = det_metrics
+
+        metrics = torchfcn.utils.label_accuracy_score(label_trues, label_preds, n_class, det_metrics)
+
+        self.metric_history.append(det_metrics)
 
         if len(visualizations) > 0:
             out = osp.join(self.out, 'visualization_viz')
@@ -232,36 +263,43 @@ class Trainer(object):
             skimage.io.imsave(out_file, fcn.utils.get_tile_image(visualizations))
 
         val_loss /= len(self.val_loader)
+        self.val_loss_history.append(val_loss)
 
-        print("\nValidate epoch {ep}: acc {acc} | acc_cls {acc_cls} | "
-              "Mean IU {miu} | Fwac Acc {fwavacc}".format(ep=self.epoch,
-                                                          acc=metrics[0],
-                                                          acc_cls=metrics[1],
-                                                          miu=metrics[2],
-                                                          fwavacc=metrics[3]))
+        print("\nValidate epoch {ep}: Mean Pix Acc {acc} | Mean Class Acc {acc_cls} | "
+              "Mean IoU {miu} | Weighted mean IoU {fwavacc}".format(ep=self.epoch,
+                                                                    acc=metrics[0],
+                                                                    acc_cls=metrics[1],
+                                                                    miu=metrics[2],
+                                                                    fwavacc=metrics[3]))
 
-        with open(osp.join(self.out, 'log.csv'), 'a') as f:
+        with open(osp.join(self.out, 'log_val.csv'), 'a') as f:
             elapsed_time = (
                     datetime.datetime.now(pytz.timezone('Europe/Berlin')) - self.tmstamp_strt).total_seconds()
-            log = [self.epoch, self.iteration] + [''] * 5 + [val_loss] + list(metrics) + [elapsed_time]
+            log = [self.epoch, self.iteration, val_loss] + list(metrics) + [elapsed_time]
             log = map(str, log)
             f.write(','.join(log) + '\n')
 
-        mean_iu = metrics[2]
-        is_best = mean_iu > self.best_mean_iu
-        if is_best:
-            self.best_mean_iu = mean_iu
+        mean_iou = metrics[2]
+        is_best = mean_iou > self.best_mean_iou
+        self.best_mean_iou = mean_iou if is_best else self.best_mean_iou
+        self.best_epoch = self.best_epoch if is_best else self.epoch
+
         torch.save({
             'epoch': self.epoch,
             'iteration': self.iteration,
             'arch': self.model.__class__.__name__,
             'optim_state_dict': self.optim.state_dict(),
             'model_state_dict': self.model.state_dict(),
-            'best_mean_iu': self.best_mean_iu,
+            'best_mean_iou': self.best_mean_iou,
         }, osp.join(self.out, 'checkpoint.pth.tar'))
+
         if is_best:
             shutil.copy(osp.join(self.out, 'checkpoint.pth.tar'),
                         osp.join(self.out, 'model_best.pth.tar'))
+
+        # if self.epoch % self.interval_val_viz == 0:
+        torchfcn.utils.plot_metrics(self.metric_history, self.train_loss_history, self.val_loss_history,
+                                    cls_names=self.cls_names, best_idx=self.best_epoch, out_file=self.out)
 
         if training:
             self.model.train()
