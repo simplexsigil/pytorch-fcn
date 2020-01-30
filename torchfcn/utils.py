@@ -129,7 +129,7 @@ def plot_metrics(metric_history, train_los_history, val_los_history, cls_names, 
     plt.title('Normalized Confusion Matrix of Epoch {}'.format(best_idx))
     with np.errstate(divide='ignore', invalid='ignore'):
         # Only show last confusion matrix for the moment.
-        cm_normalized_cls = cnf_mat_hist[:, :, best_idx].astype(float) / cls_pixel_counts_hist[:, best_idx].sum(axis=0)
+        cm_normalized_cls = cnf_mat_hist[:, :, best_idx].astype(float) / cls_pixel_counts_hist[:, best_idx]
 
     sn.heatmap(cm_normalized_cls, annot=True, fmt="3.2f", xticklabels=cls_names, yticklabels=cls_names, cmap="YlGnBu",
                linewidths=.5)
