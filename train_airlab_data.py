@@ -31,6 +31,8 @@ def main():
 
     settings_to_logfile(args)
 
+    print("Output folder:\n{}".format(args.out))
+
     for k in range(args.k_fold):
         print("Training fold {}/{}".format(k, args.k_fold))
 
