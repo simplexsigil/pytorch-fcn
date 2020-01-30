@@ -151,7 +151,6 @@ def plot_metrics(metric_history, train_los_history, val_los_history, cls_names, 
     ax1.plot(acc_hist, color='blue', label="Val Accuracy")
     ax1.set_ylabel('Accuracy')
 
-    ax0.set_xticks(range(hist_len))
     ax0.set_ylim(0, max(max(train_los_history), max(val_los_history)))
 
     ax0.legend(loc="center left")
