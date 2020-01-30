@@ -90,7 +90,7 @@ def main():
             val_loader=val_loader,
             out=out,
             max_epoch=args.max_epoch,
-            interval_val_viz=10,
+            interval_val_viz=20,
             epoch_callback_tuples=[(30, weight_unfreezer)]
         )
 
