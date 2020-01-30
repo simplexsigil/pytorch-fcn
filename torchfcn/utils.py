@@ -5,7 +5,6 @@ import subprocess
 
 import fcn
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
 import numpy as np
 import seaborn as sn
 import skimage
@@ -129,7 +128,9 @@ def plot_metrics(metric_history, train_los_history, val_los_history, cls_names, 
     plt.title('Normalized Confusion Matrix of Epoch {}'.format(best_idx))
     with np.errstate(divide='ignore', invalid='ignore'):
         # Only show last confusion matrix for the moment.
-        cm_normalized_cls = cnf_mat_hist[:, :, best_idx].astype(float) / cls_pixel_counts_hist[:, best_idx]
+        div_vec = np.reshape(cls_pixel_counts_hist[:, best_idx], (len(cls_names), 1))
+        cnf_mat_divisor = np.repeat(div_vec, len(cls_names), axis=1)
+        cm_normalized_cls = cnf_mat_hist[:, :, best_idx].astype(float) / cnf_mat_divisor
 
     sn.heatmap(cm_normalized_cls, annot=True, fmt="3.2f", xticklabels=cls_names, yticklabels=cls_names, cmap="YlGnBu",
                linewidths=.5)
