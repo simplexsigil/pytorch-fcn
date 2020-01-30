@@ -189,8 +189,8 @@ class Trainer(object):
         train_loss /= len(self.train_loader)
         self.train_loss_history.append(train_loss)
 
-        print("\nTrain epoch {ep}: Mean Pix Acc {acc} | Mean Class Acc {acc_cls} | "
-              "Mean IoU {miu} | Weighted mean IoU {fwavacc}".format(ep=self.epoch,
+        print("\rTrain epoch {ep}: Mean Pix Acc {acc:.4f} | Mean Class Acc {acc_cls:.4f} | "
+              "Mean IoU {miu:.4f} | Weighted mean IoU {fwavacc:.4f}".format(ep=self.epoch,
                                                                     acc=metrics[0],
                                                                     acc_cls=metrics[1],
                                                                     miu=metrics[2],
@@ -265,8 +265,8 @@ class Trainer(object):
         val_loss /= len(self.val_loader)
         self.val_loss_history.append(val_loss)
 
-        print("\nValidate epoch {ep}: Mean Pix Acc {acc} | Mean Class Acc {acc_cls} | "
-              "Mean IoU {miu} | Weighted mean IoU {fwavacc}".format(ep=self.epoch,
+        print("\rValidate epoch {ep}: Mean Pix Acc {acc:.4f} | Mean Class Acc {acc_cls:.4f} | "
+              "Mean IoU {miu:.4f} | Weighted mean IoU {fwavacc:.4f}".format(ep=self.epoch,
                                                                     acc=metrics[0],
                                                                     acc_cls=metrics[1],
                                                                     miu=metrics[2],
