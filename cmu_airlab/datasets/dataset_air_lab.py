@@ -28,7 +28,7 @@ class AirLabClassSegBase(data.Dataset):
     mean_bgr = np.array([104.00698793, 116.66876762, 122.67891434])
 
     def __init__(self, root, val=False, transform=True, k_fold=4, k_fold_val=0, shuffle=True, shuffle_seed=42,
-                 max_len=None):
+                 max_len=None, use_agumented=True):
         self.root = root
         self._transform = transform
         self.val = val
@@ -36,17 +36,26 @@ class AirLabClassSegBase(data.Dataset):
 
         # Creating lists of images, disparities and labels
         self.dataset_dir = osp.join(self.root, 'cmu-airlab/assignment-task-5/data')
-        self.img_dir = osp.join(self.dataset_dir, "left")
-        self.disp_dir = osp.join(self.dataset_dir, "disp")
-        self.lbl_dir = osp.join(self.dataset_dir, "labeled")
+        if use_agumented:
+            self.img_dir = osp.join(self.dataset_dir, "left/augmented")
+            self.disp_dir = osp.join(self.dataset_dir, "disp/augmented")
+            self.lbl_dir = osp.join(self.dataset_dir, "labeled/augmented")
+            self.ds_ext = {"img": "_aug_left.jpg", "disp": "_aug_disp.png", "lbl": "_aug_left.png"}
 
-        self.ds_ext = {"img": "_left.jpg", "disp": "_disp.png", "lbl": "_left.png"}
+            # Preparing the datasets. Only maintaining ids.
+            self.img_ids = [f[0:6] for f in os.listdir(self.img_dir) if osp.isfile(osp.join(self.img_dir, f))]
+            self.disp_ids = [f[0:6] for f in os.listdir(self.disp_dir) if osp.isfile(osp.join(self.disp_dir, f))]
+            self.lbl_ids = [f[0:6] for f in os.listdir(self.lbl_dir) if osp.isfile(osp.join(self.lbl_dir, f))]
+        else:
+            self.img_dir = osp.join(self.dataset_dir, "left")
+            self.disp_dir = osp.join(self.dataset_dir, "disp")
+            self.lbl_dir = osp.join(self.dataset_dir, "labeled")
+            self.ds_ext = {"img": "_left.jpg", "disp": "_disp.png", "lbl": "_left.png"}
 
-        # Preparing the datasets. Only maintaining ids.
-        self.img_ids = [f[0:4] for f in os.listdir(self.img_dir) if osp.isfile(osp.join(self.img_dir, f))]
-        self.disp_ids = [f[0:4] for f in os.listdir(self.disp_dir) if osp.isfile(osp.join(self.disp_dir, f))]
-
-        self.lbl_ids = [f[0:4] for f in os.listdir(self.lbl_dir) if osp.isfile(osp.join(self.lbl_dir, f))]
+            # Preparing the datasets. Only maintaining ids.
+            self.img_ids = [f[0:4] for f in os.listdir(self.img_dir) if osp.isfile(osp.join(self.img_dir, f))]
+            self.disp_ids = [f[0:4] for f in os.listdir(self.disp_dir) if osp.isfile(osp.join(self.disp_dir, f))]
+            self.lbl_ids = [f[0:4] for f in os.listdir(self.lbl_dir) if osp.isfile(osp.join(self.lbl_dir, f))]
 
         if shuffle:
             random.seed(shuffle_seed)
@@ -123,7 +132,6 @@ class AirLabClassSegBase(data.Dataset):
         return img, lbl
 
     def untransform(self, img, lbl):
-        img = img.numpy()
         img = img.transpose(1, 2, 0)
         img += self.mean_bgr
         img = img.astype(np.uint8)
@@ -132,5 +140,4 @@ class AirLabClassSegBase(data.Dataset):
         # disp = disp.numpy()
         # disp = disp.astype(np.uint16)
 
-        lbl = lbl.numpy()
         return img, lbl
