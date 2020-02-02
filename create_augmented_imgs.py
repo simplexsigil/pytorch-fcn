@@ -121,18 +121,18 @@ def apply_random_transform(img, disp, lbl):
         disp = TF.hflip(disp)
         lbl = TF.hflip(lbl)
 
-    angle = rnd.random() * 180 - 90
-    translate1 = rnd.random() * 50 - 25
-    translate2 = rnd.random() * 50 - 25
+    angle = rnd.random() * 60 - 30
+    translate1 = rnd.random() * 100 - 50
+    translate2 = rnd.random() * 100 - 50
     translate = (translate1, translate2)
-    scale = rnd.random() + 1
-    shear = rnd.random() * 20 - 10
+    scale = rnd.random() * 2 + 1
+    shear = rnd.random() * 10 - 5
 
     img = TF.affine(img, angle, translate, scale, shear, resample=PIL.Image.BICUBIC)
     disp = TF.affine(disp, angle, translate, scale, shear, resample=PIL.Image.NEAREST)
     lbl = TF.affine(lbl, angle, translate, scale, shear, resample=PIL.Image.NEAREST)
 
-    img = TF.adjust_brightness(img, 0.5 + rnd.random())
+    img = TF.adjust_brightness(img, 0.75 + rnd.random()*0.5)
 
     img = TF.center_crop(img, output_size=(512, 640))
     disp = TF.center_crop(disp, output_size=(512, 640))
