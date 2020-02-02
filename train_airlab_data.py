@@ -42,10 +42,10 @@ def main():
         kwargs = {'num_workers': 4, 'pin_memory': True} if args.use_cuda else {}
 
         train_dst = AirLabClassSegBase(root, transform=True, max_len=3 if on_my_notebook else None,
-                                       k_fold=args.k_fold, k_fold_val=k, use_agumented=True)
+                                       k_fold=args.k_fold, k_fold_val=k, use_augmented=True)
 
         test_dst = AirLabClassSegBase(root, val=True, transform=True, max_len=3 if on_my_notebook else None,
-                                      k_fold=args.k_fold, k_fold_val=k, use_agumented=False)
+                                      k_fold=args.k_fold, k_fold_val=k, use_augmented=False)
 
         train_loader = DataLoader(train_dst, batch_size=15, shuffle=False, **kwargs)
         val_loader = DataLoader(test_dst, batch_size=1, shuffle=False, **kwargs)

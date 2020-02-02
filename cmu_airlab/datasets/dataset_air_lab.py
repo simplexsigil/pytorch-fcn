@@ -28,7 +28,7 @@ class AirLabClassSegBase(data.Dataset):
     mean_bgr = np.array([104.00698793, 116.66876762, 122.67891434])
 
     def __init__(self, root, val=False, transform=True, k_fold=4, k_fold_val=0, shuffle=True, shuffle_seed=42,
-                 max_len=None, use_agumented=True):
+                 max_len=None, use_augmented=True):
         self.root = root
         self._transform = transform
         self.val = val
@@ -36,7 +36,7 @@ class AirLabClassSegBase(data.Dataset):
 
         # Creating lists of images, disparities and labels
         self.dataset_dir = osp.join(self.root, 'cmu-airlab/assignment-task-5/data')
-        if use_agumented:
+        if use_augmented:
             self.img_dir = osp.join(self.dataset_dir, "left/augmented")
             self.disp_dir = osp.join(self.dataset_dir, "disp/augmented")
             self.lbl_dir = osp.join(self.dataset_dir, "labeled/augmented")
@@ -60,6 +60,8 @@ class AirLabClassSegBase(data.Dataset):
         if shuffle:
             random.seed(shuffle_seed)
             random.shuffle(self.lbl_ids)
+
+        print("Dataset contains {} labelled images (augmentation={})".format(len(self.lbl_ids), str(use_augmented)))
 
         val_start = int(len(self.lbl_ids) / k_fold * k_fold_val)
         val_end = int(len(self.lbl_ids) / k_fold * (k_fold_val + 1))

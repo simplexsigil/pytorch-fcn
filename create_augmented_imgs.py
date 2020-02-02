@@ -74,7 +74,7 @@ def main():
         max_lbl = np.amax(org_lbl_np)
 
 
-        for i in trange(100, ncols=80, leave=False, file=sys.stdout):
+        for i in trange(25, ncols=80, leave=False, file=sys.stdout):
             new_id = img_id + '{:02d}'.format(i)
             img, disp, lbl = apply_random_transform(org_img, org_disp, org_lbl)
 
