@@ -77,7 +77,7 @@ def main():
             checkpoint = torch.load(args.resume)
             optim.load_state_dict(checkpoint['optim_state_dict'])
 
-        scheduler = MultiStepLR(optim, milestones=[50, 80, 90], gamma=0.1, last_epoch=start_epoch - 1)
+        scheduler = MultiStepLR(optim, milestones=[40, 80, 90], gamma=0.1, last_epoch=start_epoch - 1)
 
         weight_unfreezer = prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen=True)
 
@@ -90,8 +90,8 @@ def main():
             val_loader=val_loader,
             out=out,
             max_epoch=args.max_epoch,
-            interval_val_viz=20,
-            epoch_callback_tuples=[(30, weight_unfreezer)]
+            interval_val_viz=5,
+            epoch_callback_tuples=[(20, weight_unfreezer)]
         )
 
         trainer.epoch = start_epoch
@@ -174,7 +174,7 @@ def argument_parsing():
         '--k-fold', type=int, default=4, help='k for k-fold validation'
     )
     parser.add_argument(
-        '--lr', type=float, default=1.0e-14, help='learning rate',
+        '--lr', type=float, default=5.0e-14, help='learning rate',
     )
     parser.add_argument(
         '--weight-decay', type=float, default=0.0005, help='weight decay',
