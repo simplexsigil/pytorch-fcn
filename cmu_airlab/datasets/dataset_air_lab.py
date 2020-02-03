@@ -36,6 +36,26 @@ class AirLabClassSegBase(data.Dataset):
 
         # Creating lists of images, disparities and labels
         self.dataset_dir = osp.join(self.root, 'cmu-airlab/assignment-task-5/data')
+
+        self.img_dir = osp.join(self.dataset_dir, "left")
+        self.disp_dir = osp.join(self.dataset_dir, "disp")
+        self.lbl_dir = osp.join(self.dataset_dir, "labeled")
+        self.ds_ext = {"img": "_left.jpg", "disp": "_disp.png", "lbl": "_left.png"}
+
+        # Preparing the datasets. Only maintaining ids.
+        self.img_ids = [f[0:4] for f in os.listdir(self.img_dir) if osp.isfile(osp.join(self.img_dir, f))]
+        self.disp_ids = [f[0:4] for f in os.listdir(self.disp_dir) if osp.isfile(osp.join(self.disp_dir, f))]
+        self.lbl_ids = [f[0:4] for f in os.listdir(self.lbl_dir) if osp.isfile(osp.join(self.lbl_dir, f))]
+
+        # Selecting cross validation data.
+        val_start = int(len(self.lbl_ids) / k_fold * k_fold_val)
+        val_end = int(len(self.lbl_ids) / k_fold * (k_fold_val + 1))
+
+        # Preparing id prefixes of the train val set. Will be use to select augmented data as well.
+        self.lbl_id_prefs_train = self.lbl_ids[:val_start]
+        self.lbl_id_prefs_train.extend(self.lbl_ids[val_end:])
+        self.lbl_id_prefs_val = self.lbl_ids[val_start:val_end]
+
         if use_augmented:
             self.img_dir = osp.join(self.dataset_dir, "left/augmented")
             self.disp_dir = osp.join(self.dataset_dir, "disp/augmented")
@@ -46,16 +66,10 @@ class AirLabClassSegBase(data.Dataset):
             self.img_ids = [f[0:6] for f in os.listdir(self.img_dir) if osp.isfile(osp.join(self.img_dir, f))]
             self.disp_ids = [f[0:6] for f in os.listdir(self.disp_dir) if osp.isfile(osp.join(self.disp_dir, f))]
             self.lbl_ids = [f[0:6] for f in os.listdir(self.lbl_dir) if osp.isfile(osp.join(self.lbl_dir, f))]
-        else:
-            self.img_dir = osp.join(self.dataset_dir, "left")
-            self.disp_dir = osp.join(self.dataset_dir, "disp")
-            self.lbl_dir = osp.join(self.dataset_dir, "labeled")
-            self.ds_ext = {"img": "_left.jpg", "disp": "_disp.png", "lbl": "_left.png"}
 
-            # Preparing the datasets. Only maintaining ids.
-            self.img_ids = [f[0:4] for f in os.listdir(self.img_dir) if osp.isfile(osp.join(self.img_dir, f))]
-            self.disp_ids = [f[0:4] for f in os.listdir(self.disp_dir) if osp.isfile(osp.join(self.disp_dir, f))]
-            self.lbl_ids = [f[0:4] for f in os.listdir(self.lbl_dir) if osp.isfile(osp.join(self.lbl_dir, f))]
+            # Only use augemented images which correlate to original train val folds. Id string starts with the same id.
+            self.lbl_id_prefs_train = [f for f in self.lbl_ids if f[0:4] in self.lbl_id_prefs_train]
+            self.lbl_id_prefs_val = [f for f in self.lbl_ids if f[0:4] in self.lbl_id_prefs_val]
 
         if shuffle:
             random.seed(shuffle_seed)
@@ -63,27 +77,19 @@ class AirLabClassSegBase(data.Dataset):
 
         print("Dataset contains {} labelled images (augmentation={})".format(len(self.lbl_ids), str(use_augmented)))
 
-        val_start = int(len(self.lbl_ids) / k_fold * k_fold_val)
-        val_end = int(len(self.lbl_ids) / k_fold * (k_fold_val + 1))
-
-        # Selecting cross validation data.
-        self.lbl_ids_train = self.lbl_ids[:val_start]
-        self.lbl_ids_train.extend(self.lbl_ids[val_end:])
-        self.lbl_ids_val = self.lbl_ids[val_start:val_end]
-
     def build_path(self, f_dir, img_id, ext): return osp.join(f_dir, img_id + ext)
 
     def __len__(self):
         if self.val:
-            return len(self.lbl_ids_val) if self.max_len is None else self.max_len
+            return len(self.lbl_id_prefs_val) if self.max_len is None else self.max_len
         else:
-            return len(self.lbl_ids_train) if self.max_len is None else self.max_len
+            return len(self.lbl_id_prefs_train) if self.max_len is None else self.max_len
 
     def __getitem__(self, index):
         if self.val:
-            file_id = self.lbl_ids_val[index]
+            file_id = self.lbl_id_prefs_val[index]
         else:
-            file_id = self.lbl_ids_train[index]
+            file_id = self.lbl_id_prefs_train[index]
 
         paths = (self.build_path(self.img_dir, file_id, self.ds_ext["img"]),
                  self.build_path(self.disp_dir, file_id, self.ds_ext["disp"]),
