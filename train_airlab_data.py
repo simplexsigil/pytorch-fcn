@@ -47,7 +47,7 @@ def main():
         test_dst = AirLabClassSegBase(root, val=True, transform=True, max_len=3 if on_my_notebook else None,
                                       k_fold=args.k_fold, k_fold_val=k, use_augmented=False)
 
-        train_loader = DataLoader(train_dst, batch_size=15, shuffle=False, **kwargs)
+        train_loader = DataLoader(train_dst, batch_size=5, shuffle=False, **kwargs)
         val_loader = DataLoader(test_dst, batch_size=1, shuffle=False, **kwargs)
 
         # Check for checkpoint.
