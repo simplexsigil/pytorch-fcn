@@ -59,7 +59,7 @@ class Trainer(object):
 
     def __init__(self, cuda, model, optimizer, lr_scheduler,
                  train_loader, val_loader, out, max_epoch,
-                 size_average=False, interval_val_viz=-1, epoch_callback_tuples=None):
+                 size_average=True, interval_val_viz=-1, epoch_callback_tuples=None):
         self.cuda = cuda
 
         self.cls_names = train_loader.dataset.class_names
