@@ -2,8 +2,10 @@
 
 import argparse
 import datetime
+import hashlib
 import os
 import os.path as osp
+import uuid
 
 import torch
 import yaml
@@ -15,11 +17,15 @@ from cmu_airlab.datasets.dataset_air_lab import AirLabClassSegBase
 from torchfcn.models.fcn_utils import get_parameters
 from torchfcn.utils import git_hash
 
+# This is used to differentiate a kind of 'debug' mode on my notebook, which does not have enough graphics memory.
+nb_hash = b'\x88\x95\xe23\x9b\xff_RN8\xfe\xd0\x08\xe6r\x05m1\x9e\x94\xac!\xef\xb2\xc2\xc9k\x18\x0f\xc6\xda\xbf'
 here = osp.dirname(osp.abspath(__file__))
 
 
 def main():
-    on_my_notebook = torch.cuda.get_device_name() == 'GeForce 940MX'
+    m = hashlib.sha256()
+    m.update(str(uuid.getnode()).encode('utf-8'))
+    on_my_notebook = m.digest() == nb_hash
 
     args = argument_parsing()
 
@@ -39,7 +45,7 @@ def main():
         out = osp.join(args.out, "fold_{}".format(k))
         # Prepare Dataset
         root = osp.expanduser('~/Daten/datasets')
-        kwargs = {'num_workers': 4, 'pin_memory': True} if args.use_cuda else {}
+        kwargs = {'num_workers': 8, 'pin_memory': True} if args.use_cuda else {}
 
         train_dst = AirLabClassSegBase(root, transform=True, max_len=3 if on_my_notebook else None,
                                        k_fold=args.k_fold, k_fold_val=k, use_augmented=True)
@@ -47,7 +53,7 @@ def main():
         test_dst = AirLabClassSegBase(root, val=True, transform=True, max_len=3 if on_my_notebook else None,
                                       k_fold=args.k_fold, k_fold_val=k, use_augmented=False)
 
-        train_loader = DataLoader(train_dst, batch_size=15, shuffle=False, **kwargs)
+        train_loader = DataLoader(train_dst, batch_size=5, shuffle=False, **kwargs)
         val_loader = DataLoader(test_dst, batch_size=1, shuffle=False, **kwargs)
 
         # Check for checkpoint.
