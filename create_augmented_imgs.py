@@ -16,7 +16,7 @@ def build_path(root_path, f_dir, img_id, ext): return osp.join(root_path, f_dir,
 def main():
     rnd.seed(42)
 
-    root_path = r"/home/david/Daten/datasets/cmu-airlab/assignment-task-5/data"
+    root_path = osp.expanduser('~/Daten/datasets/cmu-airlab/assignment-task-5/data')
     paths = {
         "imgs": "left",
         "disps": "disp",
@@ -73,7 +73,6 @@ def main():
         min_lbl = np.amin(org_lbl_np)
         max_lbl = np.amax(org_lbl_np)
 
-
         for i in trange(25, ncols=80, leave=False, file=sys.stdout):
             new_id = img_id + '{:02d}'.format(i)
             img, disp, lbl = apply_random_transform(org_img, org_disp, org_lbl)
@@ -90,21 +89,6 @@ def main():
             disp = png.from_array(disp, mode="L;16")
             disp = disp.save(osp.join(root_path, paths["aug_disps"], new_id + ds_ext["aug_disps"]))
 
-        # img_dir = osp.join(root_path, path)
-
-        # https://pytorch.org/docs/stable/torchvision/transforms.html
-        # trf.adjust_brightness(None, brightness_factor=1)
-        # .adjust_contrast(img, contrast_factor)
-        # .adjust_gamma(img, gamma, gain=1)
-        # .affine(img, angle, translate, scale, shear, resample=0,fillcolor=None)
-        # .center_crop(img, output_size)
-        # .crop(img, top, left, height, width)
-        # .hflip(img)
-        # .normalize(tensor, mean, std, inplace=False)
-        # ..pad(img, padding, fill=0, padding_mode='constant')
-        # .resize(img, size, interpolation=2)
-        # .rotate
-
 
 def make_path(dirName):
     try:
@@ -115,30 +99,73 @@ def make_path(dirName):
         print("Directory ", dirName, " already exists")
 
 
-def apply_random_transform(img, disp, lbl):
+def apply_random_transform(img: PIL.Image, disp, lbl):
+    # All available transforms:
+    # https://pytorch.org/docs/stable/torchvision/transforms.html
+
     if rnd.random() > 0.5:
         img = TF.hflip(img)
         disp = TF.hflip(disp)
         lbl = TF.hflip(lbl)
 
     angle = rnd.random() * 60 - 30
-    translate1 = rnd.random() * 100 - 50
-    translate2 = rnd.random() * 100 - 50
-    translate = (translate1, translate2)
-    scale = rnd.random() * 2 + 1
+    translate = (0, 0)
+    scale = rnd.random() * 0.5 + 1
     shear = rnd.random() * 10 - 5
+
+    # Ensures we scale at least enough to avoid black background from rotation.
+    scale = max(scale, rotation_scaling(img.size, angle))
 
     img = TF.affine(img, angle, translate, scale, shear, resample=PIL.Image.BICUBIC)
     disp = TF.affine(disp, angle, translate, scale, shear, resample=PIL.Image.NEAREST)
+    # Resampling must be nearest, anything else does not make sense for labels.
     lbl = TF.affine(lbl, angle, translate, scale, shear, resample=PIL.Image.NEAREST)
 
-    img = TF.adjust_brightness(img, 0.75 + rnd.random()*0.5)
+    img = TF.adjust_brightness(img, 0.75 + rnd.random() * 0.5)
 
     img = TF.center_crop(img, output_size=(512, 640))
     disp = TF.center_crop(disp, output_size=(512, 640))
     lbl = TF.center_crop(lbl, output_size=(512, 640))
 
-    return img, disp, lbl
+    img_cropped = TF.five_crop(img, size=(512, 640))
+    disp_cropped = TF.five_crop(disp, size=(512, 640))
+    lbl_cropped = TF.five_crop(lbl, size=(512, 640))
+
+    imgs = [img]
+    imgs.extend(img_cropped)
+    disps = [disp]
+    disps.extend(disp_cropped)
+    lbls = [lbl]
+    lbls.extend(lbl_cropped)
+
+    idx = rnd.choice(range(len(imgs)))
+
+    return imgs[idx], disps[idx], lbls[idx]
+
+
+def rotation_scaling(size, angle):
+    # When we rotate the corners, along some axis (x or y) they are forther away from origin than before.
+    # We can take the x and y values and divide them by the original ones to determine a necessary scaling.
+    # For any corner: Distance to rot. center is distance of point (width/2, height/2) to origin.
+    # We can assume x and y axis to be symmetric, so we can work with positive values only.
+
+    point = size[0] / 2., size[1] / 2.
+    rot_point = rotate_point(point, angle)
+    rot_point = abs(rot_point[0]), abs(rot_point[1])  # We assume x and y to be symmetric and only check on one point.
+
+    # Determine scaling, so original point is at least as far from origin along each axis as rotated one.
+    rot_s = np.divide(rot_point, point)
+    rot_scaling = rot_s[0] if rot_s[0] > 1 else 1 / rot_s[0], rot_s[1] if rot_s[1] > 1 else 1 / rot_s[1]
+    rot_scaling = max(rot_scaling)
+    return rot_scaling
+
+
+def rotate_point(point, angle_deg):
+    import math
+    phi = angle_deg / 360 * 2 * math.pi
+    x, y = point
+
+    return math.cos(phi) * x - math.sin(phi) * y, math.sin(phi) * x + math.cos(phi) * y
 
 
 def extract_ids(img_dir, augmented=False):

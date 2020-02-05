@@ -27,15 +27,30 @@ def cross_entropy2d(input, target, weight=None, size_average=True):
     else:
         # >=0.3
         log_p = F.log_softmax(input, dim=1)
-    # log_p: (n*h*w, c)
+
+    # log_p -> (n, h, w, c)
     log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous()
+
+    # Filters out non-valid-labeled pixels (with value -1)
+    # At first: target (n,h,w) -> (n,h,w,1) -> (n,h,w,c)
+    # Mask selection for avoiding non-valid pixels.
+    # A boolean selection automatically flattens the array,
+    # so for log_p (n, h, w, c) -> (n*h*w*c) (minus invalid pixels)
     log_p = log_p[target.view(n, h, w, 1).repeat(1, 1, 1, c) >= 0]
+
+    # (n*h*w*c) -> (n*h*w, c)
     log_p = log_p.view(-1, c)
+
+    # Also filtering non valid pixels in target.
     # target: (n*h*w,)
     mask = target >= 0
     target = target[mask]
+
+    # It is a property of nll loss that the target does not match the input shape,
+    # instead its elements only show the correct label / last dimension index of the input.
     loss = F.nll_loss(log_p, target, weight=weight, reduction='sum')
     if size_average:
+        # Normalizing loss over batch pixel count.
         loss /= mask.data.sum()
     return loss
 
@@ -248,7 +263,6 @@ class Trainer(object):
                         visualizations.append(viz)
 
         det_metrics = torchfcn.utils.label_accuracy_score_detailed(label_trues, label_preds, n_class, rt_cnf_mat=True)
-        px_all, tr_all, tr_cls_wise, cls_pixel_counts, cls_clsfd_pixel_counts, cls_iou, cnf_mat = det_metrics
 
         metrics = torchfcn.utils.label_accuracy_score(label_trues, label_preds, n_class, det_metrics)
 
