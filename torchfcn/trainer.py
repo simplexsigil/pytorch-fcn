@@ -204,8 +204,9 @@ class Trainer(object):
         train_loss /= len(self.train_loader)
         self.train_loss_history.append(train_loss)
 
-        print("\rTrain epoch {ep}: Mean Pix Acc {acc:.4f} | Mean Class Acc {acc_cls:.4f} | "
-              "Mean IoU {miu:.4f} | Weighted mean IoU {fwavacc:.4f}".format(ep=self.epoch,
+        print("\rTrain epoch {ep}: Loss {lss:.2f} | Mean Pix Acc {acc:.4f} | Mean Class Acc {acc_cls:.4f} | "
+              "Mean IoU {miu:.4f} | Weighted mean IoU {fwavacc:.4f}".format(lss=train_loss,
+                                                                            ep=self.epoch,
                                                                             acc=metrics[0],
                                                                             acc_cls=metrics[1],
                                                                             miu=metrics[2],
@@ -279,8 +280,9 @@ class Trainer(object):
         val_loss /= len(self.val_loader)
         self.val_loss_history.append(val_loss)
 
-        print("\rValidate epoch {ep}: Mean Pix Acc {acc:.4f} | Mean Class Acc {acc_cls:.4f} | "
-              "Mean IoU {miu:.4f} | Weighted mean IoU {fwavacc:.4f}".format(ep=self.epoch,
+        print("\rValidate epoch {ep}: Loss {lss:.2f} | Mean Pix Acc {acc:.4f} | Mean Class Acc {acc_cls:.4f} | "
+              "Mean IoU {miu:.4f} | Weighted mean IoU {fwavacc:.4f}".format(lss=val_loss,
+                                                                            ep=self.epoch,
                                                                             acc=metrics[0],
                                                                             acc_cls=metrics[1],
                                                                             miu=metrics[2],
