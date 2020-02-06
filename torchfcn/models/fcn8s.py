@@ -82,15 +82,19 @@ class FCN8s(nn.Module):
         self.upscore_pool4 = nn.ConvTranspose2d(
             n_class, n_class, 4, stride=2, bias=False)
 
+        self.refinement_1 = nn.Conv2d(n_class, n_class, kernel_size=3, padding=1)
+        self.refinement_2 = nn.Conv2d(n_class, n_class, kernel_size=3, padding=1)
+
         self._initialize_weights()
 
         self.class_dependent_layers = ["score_fr", "score_pool3", "score_pool4", "upscore2", "upscore8",
-                                       "upscore_pool4"]
+                                       "upscore_pool4", "refinement_1", "refinement_2"]
 
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                m.weight.data.zero_()
+                nn.init.xavier_uniform_(m.weight)
+                # m.weight.data.zero_()
                 if m.bias is not None:
                     m.bias.data.zero_()
             if isinstance(m, nn.ConvTranspose2d):
@@ -154,6 +158,9 @@ class FCN8s(nn.Module):
 
         h = self.upscore8(h)
         h = h[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
+
+        h = self.refinement_1(h)
+        h = self.refinement_2(h)
 
         return h
 
