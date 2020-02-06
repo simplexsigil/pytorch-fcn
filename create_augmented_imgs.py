@@ -73,7 +73,7 @@ def main():
         min_lbl = np.amin(org_lbl_np)
         max_lbl = np.amax(org_lbl_np)
 
-        for i in trange(25, ncols=80, leave=False, file=sys.stdout):
+        for i in trange(15, ncols=80, leave=False, file=sys.stdout):
             new_id = img_id + '{:02d}'.format(i)
             img, disp, lbl = apply_random_transform(org_img, org_disp, org_lbl)
 
@@ -103,12 +103,12 @@ def apply_random_transform(img: PIL.Image, disp, lbl):
     # All available transforms:
     # https://pytorch.org/docs/stable/torchvision/transforms.html
 
-    if rnd.random() > 0.5:
+    if rnd.random() > 0.2:
         img = TF.hflip(img)
         disp = TF.hflip(disp)
         lbl = TF.hflip(lbl)
 
-    angle = rnd.random() * 60 - 30
+    angle = rnd.random() * 30 - 15
     translate = (0, 0)
     scale = rnd.random() * 0.5 + 1
     shear = rnd.random() * 10 - 5
