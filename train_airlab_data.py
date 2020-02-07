@@ -98,7 +98,7 @@ def main():
             out=out,
             max_epoch=args.max_epoch,
             interval_val_viz=5,
-            epoch_callback_tuples=[(3, model_refiner), (70, weight_unfreezer)]
+            epoch_callback_tuples=[(30, model_refiner), (70, weight_unfreezer)]
         )
 
         trainer.epoch = start_epoch
@@ -190,7 +190,7 @@ def argument_parsing():
         '--k-fold', type=int, default=4, help='k for k-fold validation'
     )
     parser.add_argument(
-        '--lr', type=float, default=1.0e-6, help='learning rate',
+        '--lr', type=float, default=1.0e-8, help='learning rate',
     )
     parser.add_argument(
         '--weight-decay', type=float, default=0.0005, help='weight decay',
