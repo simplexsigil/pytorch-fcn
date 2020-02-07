@@ -3,7 +3,6 @@ import os
 import os.path as osp
 import shutil
 import sys
-from distutils.version import LooseVersion
 
 import fcn
 import numpy as np
@@ -17,16 +16,10 @@ from torch.autograd import Variable
 import torchfcn
 
 
-def cross_entropy2d(input, target, weight=None, size_average=True):
+def cross_entropy2d(log_p, target, weight=None, size_average=True):
     # input: (n, c, h, w), target: (n, h, w)
     n, c, h, w = input.size()
     # log_p: (n, c, h, w)
-    if LooseVersion(torch.__version__) < LooseVersion('0.3'):
-        # ==0.2.X
-        log_p = F.log_softmax(input)
-    else:
-        # >=0.3
-        log_p = F.log_softmax(input, dim=1)
 
     # log_p -> (n, h, w, c)
     log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous()

@@ -86,6 +86,7 @@ def main():
         scheduler = MultiStepLR(optim, milestones=[70, 80, 90], gamma=0.1, last_epoch=start_epoch - 1)
 
         weight_unfreezer = prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen=True)
+        model_refiner = prepare_model_refinement(fcn_model)
 
         trainer = torchfcn.Trainer(
             cuda=args.use_cuda,
@@ -97,13 +98,16 @@ def main():
             out=out,
             max_epoch=args.max_epoch,
             interval_val_viz=5,
-            epoch_callback_tuples=[(40, weight_unfreezer)]
+            epoch_callback_tuples=[(30, model_refiner), (70, weight_unfreezer)]
         )
 
         trainer.epoch = start_epoch
         trainer.iteration = start_iteration
         trainer.train()
 
+def prepare_model_refinement(fcn_model):
+    def set_model_refinement():
+        fcn_model.use_refinement = True
 
 def prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen):
     def weight_unfreezer():

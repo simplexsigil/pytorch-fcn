@@ -2,6 +2,7 @@ import os.path as osp
 
 import fcn
 import torch.nn as nn
+import torch.nn.functional as F
 
 from .fcn_utils import get_upsampling_weight
 
@@ -20,6 +21,8 @@ class FCN8s(nn.Module):
 
     def __init__(self, n_class=21):
         super(FCN8s, self).__init__()
+        self.use_refinement = False
+
         # conv1
         self.conv1_1 = nn.Conv2d(3, 64, 3, padding=100)
         self.relu1_1 = nn.ReLU(inplace=True)
@@ -84,6 +87,8 @@ class FCN8s(nn.Module):
 
         self.refinement_1 = nn.Conv2d(n_class, n_class, kernel_size=3, padding=1)
         # self.refinement_2 = nn.Conv2d(n_class, n_class, kernel_size=3, padding=1)
+
+        self.fin_softmax = nn.LogSoftmax(dim=1)
 
         self._initialize_weights()
 
@@ -159,8 +164,12 @@ class FCN8s(nn.Module):
         h = self.upscore8(h)
         h = h[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
 
-        h = self.refinement_1(h)
-        # h = self.refinement_2(h)
+        h = self.fin_softmax(h)
+
+        if self.use_refinement:
+            h = self.refinement_1(h)
+            # h = self.refinement_2(h)
+            h = self.fin_softmax(h)
 
         return h
 
