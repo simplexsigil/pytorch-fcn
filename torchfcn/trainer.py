@@ -18,7 +18,7 @@ import torchfcn
 
 def cross_entropy2d(log_p, target, weight=None, size_average=True):
     # input: (n, c, h, w), target: (n, h, w)
-    n, c, h, w = input.size()
+    n, c, h, w = log_p.size()
     # log_p: (n, c, h, w)
 
     # log_p -> (n, h, w, c)
