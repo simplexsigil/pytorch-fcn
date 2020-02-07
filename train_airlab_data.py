@@ -184,7 +184,7 @@ def argument_parsing():
         '--k-fold', type=int, default=4, help='k for k-fold validation'
     )
     parser.add_argument(
-        '--lr', type=float, default=1.0e-7, help='learning rate',
+        '--lr', type=float, default=1.0e-6, help='learning rate',
     )
     parser.add_argument(
         '--weight-decay', type=float, default=0.0005, help='weight decay',

@@ -91,13 +91,13 @@ class FCN8s(nn.Module):
         self._initialize_weights()
 
         self.class_dependent_layers = ["score_fr", "score_pool3", "score_pool4", "upscore2", "upscore8",
-                                       "upscore_pool4", "refinement_1", "refinement_2"]
+                                       "upscore_pool4", "refinement_1"]
 
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.xavier_uniform_(m.weight)
-                # m.weight.data.zero_()
+                # nn.init.xavier_uniform_(m.weight)
+                m.weight.data.zero_()
                 if m.bias is not None:
                     m.bias.data.zero_()
             if isinstance(m, nn.ConvTranspose2d):
