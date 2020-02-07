@@ -98,7 +98,7 @@ def main():
             out=out,
             max_epoch=args.max_epoch,
             interval_val_viz=5,
-            epoch_callback_tuples=[(30, model_refiner), (70, weight_unfreezer)]
+            epoch_callback_tuples=[(5, model_refiner), (70, weight_unfreezer)]
         )
 
         trainer.epoch = start_epoch
