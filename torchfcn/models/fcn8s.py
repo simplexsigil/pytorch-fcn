@@ -88,8 +88,6 @@ class FCN8s(nn.Module):
         self.refinement_1 = nn.Conv2d(n_class, n_class, kernel_size=3, padding=1)
         # self.refinement_2 = nn.Conv2d(n_class, n_class, kernel_size=3, padding=1)
 
-        self.fin_softmax = nn.LogSoftmax(dim=1)
-
         self._initialize_weights()
 
         self.class_dependent_layers = ["score_fr", "score_pool3", "score_pool4", "upscore2", "upscore8",
@@ -164,12 +162,12 @@ class FCN8s(nn.Module):
         h = self.upscore8(h)
         h = h[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
 
-        h = self.fin_softmax(h)
+        h = F.log_softmax(h, dim=1)
 
         if self.use_refinement:
             h = self.refinement_1(h)
             # h = self.refinement_2(h)
-            h = self.fin_softmax(h)
+            h = F.log_softmax(h, dim=1)
 
         return h
 
