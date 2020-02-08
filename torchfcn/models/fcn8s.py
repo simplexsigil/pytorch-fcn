@@ -98,7 +98,7 @@ class FCN8s(nn.Module):
             if isinstance(m, nn.Conv2d):
                 # nn.init.xavier_uniform_(m.weight)
                 # m.weight.data.zero_()
-                m.weight.data.normal_(0, 0.01)
+                m.weight.data.normal_(0, 0.00000001)
                 if m.bias is not None:
                     m.bias.data.zero_()
             if isinstance(m, nn.ConvTranspose2d):

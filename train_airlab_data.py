@@ -48,7 +48,7 @@ def main():
         kwargs = {'num_workers': 8, 'pin_memory': True} if args.use_cuda else {}
 
         train_dst = AirLabClassSegBase(root, transform=True, max_len=3 if on_my_notebook else None,
-                                       k_fold=args.k_fold, k_fold_val=k, use_augmented=True)
+                                       k_fold=args.k_fold, k_fold_val=k, use_augmented=False)
 
         test_dst = AirLabClassSegBase(root, val=True, transform=True, max_len=3 if on_my_notebook else None,
                                       k_fold=args.k_fold, k_fold_val=k, use_augmented=False)
@@ -190,7 +190,7 @@ def argument_parsing():
         '--k-fold', type=int, default=4, help='k for k-fold validation'
     )
     parser.add_argument(
-        '--lr', type=float, default=1.0e-8, help='learning rate',
+        '--lr', type=float, default=1.0e-5, help='learning rate',
     )
     parser.add_argument(
         '--weight-decay', type=float, default=0.0005, help='weight decay',
