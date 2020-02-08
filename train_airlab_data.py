@@ -18,14 +18,16 @@ from torchfcn.models.fcn_utils import get_parameters
 from torchfcn.utils import git_hash
 
 # This is used to differentiate a kind of 'debug' mode on my notebook, which does not have enough graphics memory.
-nb_hash = b'\x88\x95\xe23\x9b\xff_RN8\xfe\xd0\x08\xe6r\x05m1\x9e\x94\xac!\xef\xb2\xc2\xc9k\x18\x0f\xc6\xda\xbf'
+nb_hashs = [b'\x88\x95\xe23\x9b\xff_RN8\xfe\xd0\x08\xe6r\x05m1\x9e\x94\xac!\xef\xb2\xc2\xc9k\x18\x0f\xc6\xda\xbf',
+            b'YTZ\x13J4f\xda;)E\xb1\x82i\xbe\x87\xc3\xf2=\x90"\x1c\xa3\xfb\t>9\xb5\xb8\x89\x1au']
+
 here = osp.dirname(osp.abspath(__file__))
 
 
 def main():
     m = hashlib.sha256()
     m.update(str(uuid.getnode()).encode('utf-8'))
-    on_my_notebook = m.digest() == nb_hash
+    on_my_notebook = m.digest() in nb_hashs
 
     args = argument_parsing()
 
@@ -44,7 +46,9 @@ def main():
 
         out = osp.join(args.out, "fold_{}".format(k))
         # Prepare Dataset
-        root = osp.expanduser('~/Daten/datasets')
+        root = osp.expanduser('~/Daten/datasets/cmu-airlab/assignment-task-5/data')
+        if on_my_notebook:
+            root = "../data"
         kwargs = {'num_workers': 8, 'pin_memory': True} if args.use_cuda else {}
 
         train_dst = AirLabClassSegBase(root, transform=True, max_len=3 if on_my_notebook else None,
@@ -83,7 +87,7 @@ def main():
             checkpoint = torch.load(args.resume)
             optim.load_state_dict(checkpoint['optim_state_dict'])
 
-        scheduler = MultiStepLR(optim, milestones=[70, 80, 90], gamma=0.1, last_epoch=start_epoch - 1)
+        scheduler = MultiStepLR(optim, milestones=[64, 67, 70], gamma=0.1, last_epoch=start_epoch - 1)
 
         weight_unfreezer = prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen=True)
         model_refiner = prepare_model_refinement(fcn_model)
@@ -98,7 +102,7 @@ def main():
             out=out,
             max_epoch=args.max_epoch,
             interval_val_viz=5,
-            epoch_callback_tuples=[(5, model_refiner), (70, weight_unfreezer)]
+            epoch_callback_tuples=[(30, model_refiner), (70, weight_unfreezer)]
         )
 
         trainer.epoch = start_epoch
@@ -110,7 +114,12 @@ def prepare_model_refinement(fcn_model):
     def set_model_refinement():
         fcn_model.use_refinement = True
 
-        print("Model is using refinement layer, now.")
+        for name, layer in fcn_model.named_children():
+            if name is not "refinement_1":
+                for param in layer.parameters():
+                    param.requires_grad = False
+
+        print("Model is using refinement layer, now, other layers frozen.")
 
     return set_model_refinement
 
@@ -119,11 +128,10 @@ def prepare_weight_unfreezer(optim, fcn_model, cnn_weights_frozen):
     def weight_unfreezer():
         if cnn_weights_frozen:  # Freezing cnn weights.
             for name, layer in fcn_model.named_children():
-                if name not in fcn_model.class_dependent_layers:
-                    for param in layer.parameters():
-                        param.requires_grad = True
+                for param in layer.parameters():
+                    param.requires_grad = True
 
-        print("CNN weights unfrozen.")
+        print("All weights unfrozen.")
 
     return weight_unfreezer
 

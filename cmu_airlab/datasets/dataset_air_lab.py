@@ -35,7 +35,7 @@ class AirLabClassSegBase(data.Dataset):
         self.max_len = max_len
 
         # Creating lists of images, disparities and labels
-        self.dataset_dir = osp.join(self.root, 'cmu-airlab/assignment-task-5/data')
+        self.dataset_dir = root
 
         self.img_dir = osp.join(self.dataset_dir, "left")
         self.disp_dir = osp.join(self.dataset_dir, "disp")
