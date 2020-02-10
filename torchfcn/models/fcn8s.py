@@ -85,6 +85,8 @@ class FCN8s(nn.Module):
         self.upscore_pool4 = nn.ConvTranspose2d(
             n_class, n_class, 4, stride=2, bias=False)
 
+        self.drop_ref = nn.Dropout2d()
+        self.relu_ref = nn.ReLU(inplace=True)
         self.refinement_1 = nn.Conv2d(n_class, n_class, kernel_size=3, padding=1)
         # self.refinement_2 = nn.Conv2d(n_class, n_class, kernel_size=3, padding=1)
 
@@ -163,12 +165,11 @@ class FCN8s(nn.Module):
         h = self.upscore8(h)
         h = h[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
 
+        #h = F.log_softmax(h, dim=1)
+        h = self.drop_ref(h)
+        h = self.relu_ref(self.refinement_1(h))
+        # h = self.refinement_2(h)
         h = F.log_softmax(h, dim=1)
-
-        if self.use_refinement:
-            h = self.refinement_1(h)
-            # h = self.refinement_2(h)
-            h = F.log_softmax(h, dim=1)
 
         return h
 
